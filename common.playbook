@@ -51,7 +51,7 @@
     tasks:
 
     - name: Install k3s master
-      shell: curl -sfL https://get.k3s.io/ | sh -s - --write-kubeconfig-mode 644
+      shell: curl -sfL https://get.k3s.io/ | INSTALL_K3S_EXEC="--node-ip={{private_ip}} --flannel-iface={{ private_interface }}" sh -s - --write-kubeconfig-mode 644
     - name: Check k3s service
       shell: systemctl status k3s
     - name: Check k3s token
