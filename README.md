@@ -6,7 +6,7 @@ Scripts that setup a k3s cluster with ansible. Some assumptions:
 - SSH keys have been installed on VMs
 
 # Create VMs
-I'm assuming we'll use VMs here, bare metal servers will work as well. CentOS 9 is already installed on the servers and your public SSH key has been uploaded. Many VPS hosters allow submitting a key during creation, if not, follow [these instructions](http://www.linuxproblem.org/art_9.html). It's important that the key is installed on all servers. Make sure that TCP port 22 is accessible and that there is no firewall on the private network interfaces. The setup is flexible, you can add or remove worker nodes as needed.
+I'm assuming we'll use VMs here, bare metal servers will work as well. CentOS 9 is already installed on the servers and your public SSH key has been uploaded. Many VPS hosters allow submitting a key during creation, if not, follow [these instructions](http://www.linuxproblem.org/art_9.html). It's important that the key is installed on all servers. Make sure that TCP port 22 is accessible and that there is no firewall on the private network interfaces. The setup is flexible, you can add or remove worker nodes as needed. Also, make sure you've logged in at least once with ssh to the VMs before running the playbook so that the ssh client doesn't ask for any confirmations.
 
 ~~~~
   +---+   +---+    +----------+
