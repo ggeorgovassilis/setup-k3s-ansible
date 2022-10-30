@@ -18,17 +18,14 @@
          "update-crypto-policies --set LEGACY"
       tags: cryptopolicies
 
-    - name: Add mappings to /etc/hosts
-      ansible.builtin.blockinfile:
-        path: /etc/hosts
-        block: |
-          {{ item.ip }} {{ item.name }}
-        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item.name }}"
-      loop:
-        - { name: emaster,  ip: 10.0.0.3 }
-        - { name: eworker1, ip: 10.0.0.5 }
-        - { name: eworker2, ip: 10.0.0.4 }
-        - { name: eworker3, ip: 10.0.0.2 }
+    - name: Add IP address of all hosts to all hosts
+      lineinfile:
+        dest: /etc/hosts
+        regexp: '.*{{ item }}$'
+        line: "{{ hostvars[item].private_ip }} {{item}}"
+        state: present
+      when: hostvars[item].private_ip is defined
+      with_items: "{{ groups.all }}"
     
     - name: Disable firewall
       shell: systemctl disable firewalld --now
