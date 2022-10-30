@@ -1,0 +1,131 @@
+---
+# ###########################
+# common setup for all VMS
+# ###########################
+
+  - name: Common setup
+    hosts: all
+    become: yes
+    become_user: root
+    tasks:
+    - name: upgrade all packages
+      dnf:
+        name: "*"
+        state: latest
+
+    - name: Allow legacy crypto policy
+      shell:
+         "update-crypto-policies --set LEGACY"
+      tags: cryptopolicies
+
+    - name: Add mappings to /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {{ item.ip }} {{ item.name }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item.name }}"
+      loop:
+        - { name: emaster,  ip: 10.0.0.3 }
+        - { name: eworker1, ip: 10.0.0.5 }
+        - { name: eworker2, ip: 10.0.0.4 }
+        - { name: eworker3, ip: 10.0.0.2 }
+    
+    - name: Disable firewall
+      shell: systemctl disable firewalld --now
+# firewall isn't pre-installed in this distro
+      ignore_errors: true 
+
+    - name: Unconditionally reboot the machine with all defaults
+      ansible.builtin.reboot:
+      
+    - name: Install the latest version of tar
+      ansible.builtin.dnf:
+        name: tar
+        state: latest
+
+# ####################
+# Master setup
+# ####################
+
+  - name: Master setup
+    hosts: masters
+    become: yes
+    become_user: root
+    tasks:
+
+    - name: Install k3s master
+      shell: curl -sfL https://get.k3s.io/ | sh -s - --write-kubeconfig-mode 644
+    - name: Check k3s service
+      shell: systemctl status k3s
+    - name: Check k3s token
+      shell: cat /var/lib/rancher/k3s/server/node-token | cut -d':' -f 4
+      register: K3S_TOKEN    
+
+    - name: Store K3S_TOKEN
+      set_fact:
+        K3S_TOKEN: "{{ K3S_TOKEN.stdout }}"
+        delegate_to: emaster
+
+    - name: debug
+      debug: 
+        msg: "Master K3S token is {{ K3S_TOKEN }}"
+
+# ###################
+# Worker setup
+# ###################        
+
+  - name: Worker setup
+    hosts: workers
+    become: yes
+    become_user: root
+    tasks:
+    - name: Get K3S_TOKEN
+      set_fact:
+        K3S_TOKEN: "{{ hostvars['emaster']['K3S_TOKEN']}}"
+    - name: Install k3s
+      shell: curl -sfL https://get.k3s.io | K3S_URL=https://emaster:6443 K3S_TOKEN={{ K3S_TOKEN }} INSTALL_K3S_EXEC="--node-ip={{private_ip}} --flannel-iface={{ private_interface }}" sh -
+      register: cmd
+    - debug: var=cmd.stdout_lines
+    - name: Enable k3s agent
+      shell: systemctl start k3s-agent
+    - name: Check k3s agent
+      shell: systemctl status k3s-agent
+      register: cmd
+      failed_when:
+       - cmd.rc == 0
+       - '"inactive" in cmd.stdout'
+
+# ####################
+# Verify cluster
+# ####################
+
+  - name: Verify cluster
+    hosts: masters
+    become: yes
+    become_user: root
+    tasks:
+
+    - name: Check cluster status 
+      shell: kubectl get nodes
+      register: cmd
+    - debug: var=cmd.stdout_lines
+    - name: Check cluster status 
+      shell: kubectl cluster-info
+      register: cmd
+    - debug: var=cmd.stdout_lines
+    - name: Check cluster status 
+      shell: kubectl get namespaces
+      register: cmd
+    - debug: var=cmd.stdout_lines
+    - name: Check cluster status 
+      shell: kubectl get endpoints  -n kube-system
+      register: cmd
+    - debug: var=cmd.stdout_lines
+    - name: Check cluster status 
+      shell: kubectl get pods -n kube-system
+      register: cmd
+    - debug: var=cmd.stdout_lines
+
+
+
+
