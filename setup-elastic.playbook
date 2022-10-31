@@ -1,0 +1,61 @@
+---
+# ###########################
+# Setup elastic on k3s
+# ###########################
+
+  - name: Elastic setup
+    hosts: masters
+    become: yes
+    become_user: root
+    tasks:
+    - name: Label worker nodes
+      shell:
+        cmd: k3s kubectl label node {{ item }} node-role.kubernetes.io/worker=worker
+      with_items: "{{ groups.workers }}"
+    - name: Install custom resource definitions
+      shell: kubectl get crd | grep -q "elasticsearches.elasticsearch.k8s.elastic.co" || kubectl create -f https://download.elastic.co/downloads/eck/2.4.0/crds.yaml
+    - name: Install ECK
+      shell: kubectl apply -f https://download.elastic.co/downloads/eck/2.4.0/operator.yaml
+    - name: Create Elastic deployment descriptor
+      copy:
+        dest: "/root/elastic.yml"
+        content: |
+          apiVersion: elasticsearch.k8s.elastic.co/v1
+          kind: Elasticsearch
+          metadata:
+            name: quickstart
+          spec:
+            version: 8.4.3
+            nodeSets:
+            - name: default
+              count: 3
+              podTemplate:
+                spec:
+                  affinity:
+                    podAntiAffinity:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        podAffinityTerm:
+                          labelSelector:
+                            matchLabels:
+                              elasticsearch.k8s.elastic.co/cluster-name: quickstart
+                          topologyKey: kubernetes.io/hostname
+    - name: Deploy Elastic cluster
+      shell: |
+        kubectl apply -f /root/elastic.yml
+        kubectl get pods -o wide
+        kubectl get elasticsearch
+
+#kubectl label node eworker3 node-role.kubernetes.io/worker=worker
+
+#kubectl get service quickstart-es-http
+#PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
+#kubectl port-forward service/quickstart-es-http 9200
+
+#curl -u "elastic:$PASSWORD" -k "https://localhost:9200"
+
+#k3s kubectl get pod -o=custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName --all-namespaces
+
+
+
+

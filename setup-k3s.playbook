@@ -32,6 +32,13 @@
 # firewall isn't pre-installed in this distro
       ignore_errors: true 
 
+    - name: Set system property vm.max_map_count
+      sysctl:
+        name: vm.max_map_count
+        value: 262144
+        sysctl_set: yes
+        state: present
+
     - name: Unconditionally reboot the machine with all defaults
       ansible.builtin.reboot:
       
