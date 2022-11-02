@@ -8,14 +8,18 @@
     become: yes
     become_user: root
     tasks:
+    
     - name: upgrade all packages
       dnf:
         name: "*"
         state: latest
+      register: dnf_upgrade
 
     - name: Allow legacy crypto policy
       shell:
-         "update-crypto-policies --set LEGACY"
+         "update-crypto-policies --show | grep -q LEGACY || ( update-crypto-policies --set LEGACY & echo CHANGED)"
+      register: cmd_update_crypto_policies
+      changed_when: '"CHANGED" in cmd_update_crypto_policies.stdout'
       tags: cryptopolicies
 
     - name: Add IP address of all hosts to all hosts
@@ -39,8 +43,15 @@
         sysctl_set: yes
         state: present
 
+    - name: Determine if a rebootis required
+      set_fact:
+        needsReboot: '{{ cmd_update_crypto_policies.changed or dnf_upgrade.changed }}'
+
+    - debug: msg="Needs reboot {{ needsReboot }}"
+
     - name: Unconditionally reboot the machine with all defaults
       ansible.builtin.reboot:
+      when: needsReboot == "True"
       
     - name: Install the latest version of tar
       ansible.builtin.dnf:
@@ -86,7 +97,7 @@
     - name: Get K3S_TOKEN
       set_fact:
         K3S_TOKEN: "{{ hostvars['emaster']['K3S_TOKEN']}}"
-    - name: Install k3s
+    - name: Install k3s worker
       shell: curl -sfL https://get.k3s.io | K3S_URL=https://emaster:6443 K3S_TOKEN={{ K3S_TOKEN }} INSTALL_K3S_EXEC="--node-ip={{private_ip}} --flannel-iface={{ private_interface }}" sh -
       register: cmd
     - debug: var=cmd.stdout_lines

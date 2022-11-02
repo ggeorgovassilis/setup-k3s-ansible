@@ -32,19 +32,22 @@ sudo apt install ansible
 ```
 
 # Run the playbooks
-First we need to set up the VMs with a few dependencies and install k3s on it. This is not specific to Elasticsearch and only installs k3s.
+First we need to set up the VMs with a few dependencies and install k3s on it. The script
 
 ```
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook --inventory-file "hosts" --private-key "sshkey.private" -u root setup-k3s.playbook
+setup-elastic-cluster.sh
 ```
 
-where "sshkey.pivate" points to the private part of the ssh key you installed in the VMs. "-u root" means to login as a root user, if you have a different ssh user, specify that here. "--inventory-file hosts" tells ansible to use the "hosts" file we edited earlier. 
+runs the two ansible playbooks setup-elastic.playbook and setup-k3s.playbook which configure the CentOS VMs, install k3s and then install an elastic cluster.
 
-After that is done, run the second playbookt which installs the Elastic operator and then an Elastic cluster:
+There are a few more environment variables that configure how ansible is run:
 
-```
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook --inventory-file "hosts" --private-key "sshkey.private" -u root setup-elastic.playbook
-```
+PATH_TO_SSH_KEY is the path to the private ssh key that should be used when connecting to hosts. Defaults to "sshkey.private".
+
+SSH_USER is the user that should be used when connecting to hosts. Defaults to "root".
+
+ANSIBLE_HOSTS is the path to the host inventory file that ansible should use. Defaults to "hosts".
+
 
 # Useful commands to check health and status
 ```
@@ -59,10 +62,11 @@ kubectl get pods -o wide
 kubectl get elasticsearch
 ```
 
-# Caveats
+# Troubleshooting
 The playbooks are not good at detecting if a task is necessary and they may fail if executed repeatedly on the same VM. If you need to run a playbook again, it's best to
 wipe the VM first.
 
+I haven't tested (much) how to replace a worker node. The script doesn't remove worker nodes from the kubernetes master, so there will be always a missing node which you need to take care of manually (eg. kubectl remove node $nodename). Deleting the old VM, creating a new one and running the script will work only if the new host has a different name.
 
 # Acknowledgements
 
