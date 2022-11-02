@@ -13,5 +13,5 @@ function ans() {
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook --inventory-file "$ANSIBLE_HOSTS" --private-key "$PATH_TO_SSH_KEY" -u "$SSH_USER" "$@"
 }
 
-ans setup-k3s.playbook
-ans setup-elastic.playbook
+ans playbook-setup-k3s.yml
+ans playbook-setup-elastic.yml
