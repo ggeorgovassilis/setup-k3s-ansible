@@ -8,10 +8,6 @@
     become: yes
     become_user: root
     tasks:
-    - name: Label worker nodes
-      shell:
-        cmd: k3s kubectl label node {{ item }} node-role.kubernetes.io/worker=worker
-      with_items: "{{ groups.workers }}"
     - name: Install custom resource definitions
       shell: kubectl get crd | grep -q "elasticsearches.elasticsearch.k8s.elastic.co" || kubectl create -f https://download.elastic.co/downloads/eck/2.4.0/crds.yaml
     - name: Install ECK
@@ -41,12 +37,16 @@
                               elasticsearch.k8s.elastic.co/cluster-name: quickstart
                           topologyKey: kubernetes.io/hostname
     - name: Deploy Elastic cluster
+      shell: kubectl apply -f /root/elastic.yml
+      register: cmd
+    - debug: var=cmd.stdout_lines
+    - name: Check cluster status
       shell: |
-        kubectl apply -f /root/elastic.yml
         kubectl get pods -o wide
         kubectl get elasticsearch
-
-#kubectl label node eworker3 node-role.kubernetes.io/worker=worker
+        kubectl get pods --selector='elasticsearch.k8s.elastic.co/cluster-name=quickstart'
+      register: cmd
+    - debug: var=cmd.stdout_lines
 
 #kubectl get service quickstart-es-http
 #PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
